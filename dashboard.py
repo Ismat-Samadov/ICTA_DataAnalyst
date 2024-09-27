@@ -4,6 +4,7 @@ from dash import dcc, html
 from dash.dependencies import Input, Output
 import plotly.express as px
 
+
 # Load the Excel files
 attendance_data = pd.read_excel('data/attendance.xlsx')
 holiday_data = pd.read_excel('data/holiday.xlsx')
@@ -33,6 +34,9 @@ attendance_data.loc[attendance_data['Overtime'] > 20, 'Bonus'] = 0.05
 
 # Create a Dash app
 app = dash.Dash(__name__)
+
+# Expose the Flask server instance for gunicorn
+server = app.server
 
 # Layout
 app.layout = html.Div([
@@ -154,4 +158,4 @@ def update_attendance_trend_graph(selected_department, selected_employee, time_p
 
 # Run the app
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=False)
