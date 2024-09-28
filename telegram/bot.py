@@ -190,4 +190,13 @@ async def main():
     await application.run_polling()
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    try:
+        # Create a new event loop instead of using get_event_loop()
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        
+        # Run the event loop and the bot
+        loop.run_until_complete(main())
+    except RuntimeError as e:
+        # Handle event loop errors specifically
+        print(f"Error running the bot: {e}")
