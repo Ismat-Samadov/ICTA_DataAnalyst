@@ -165,7 +165,7 @@ async def fines_employee(update: Update, context) -> None:
 # Generate and send bonuses pie chart by department
 async def bonuses_department(update: Update, context) -> None:
     response = requests.get(f"{API_URL}/attendance")
-    if response.status_code == 200):
+    if response.status_code == 200:
         data = response.json()
         df = pd.DataFrame(data)
 
