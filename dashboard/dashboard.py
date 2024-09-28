@@ -5,7 +5,7 @@ import pandas as pd
 import plotly.express as px
 
 # Load the data
-file_path = 'data/monthly_fines_bonuses.xlsx'  # Update this with the correct path to your file
+file_path = './data/monthly_fines_bonuses.xlsx'  
 monthly_data = pd.read_excel(file_path)
 
 # Initialize the Dash app
