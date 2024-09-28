@@ -66,12 +66,17 @@ async def permission(update: Update, context) -> None:
     else:
         await update.message.reply_text("Failed to fetch permission data.")
 
-# Generate and send overtime by employee chart
 async def overtime_employee(update: Update, context) -> None:
     response = requests.get(f"{API_URL}/attendance")
     if response.status_code == 200:
         data = response.json()
         df = pd.DataFrame(data)
+
+        # Ensure the Overtime column exists and is numeric
+        if 'Overtime' in df.columns:
+            df['Overtime'] = pd.to_numeric(df['Overtime'], errors='coerce').fillna(0)
+        else:
+            df['Overtime'] = 0  # Create the column with default 0 values if missing
 
         # Generate bar chart for overtime
         plt.figure(figsize=(10, 6))
@@ -85,11 +90,13 @@ async def overtime_employee(update: Update, context) -> None:
         image_path = 'overtime_employee.png'
         plt.savefig(image_path)
         
-        with open(image_path, 'rb') as photo:
-            await context.bot.send_photo(chat_id=update.effective_chat.id, photo=photo)
-        plt.close()
+        try:
+            await context.bot.send_photo(update.effective_chat.id, photo=open(image_path, 'rb'))
+        except Exception as e:
+            await update.message.reply_text(f"Error sending chart: {e}")
     else:
         await update.message.reply_text("Failed to fetch data.")
+
 
 # Generate and send delay by department chart
 async def delay_department(update: Update, context) -> None:
@@ -237,6 +244,7 @@ async def overtime_vs_delay(update: Update, context) -> None:
     else:
         await update.message.reply_text("Failed to fetch data.")
 
+
 # Main function to start the bot
 async def main():
     application = ApplicationBuilder().token(TOKEN).build()
@@ -254,11 +262,8 @@ async def main():
     application.add_handler(CommandHandler("bonuses_department", bonuses_department))
     application.add_handler(CommandHandler("top_overtime", top_overtime))
 
-    # Start the bot and keep it running
-    await application.start()
-    await application.updater.start_polling()
-    await application.idle()
+    # Instead of manually calling start, we use run_polling()
+    await application.run_polling()
 
 if __name__ == '__main__':
-    import asyncio
     asyncio.run(main())
