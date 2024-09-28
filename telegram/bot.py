@@ -124,7 +124,7 @@ async def attendance_rate(update: Update, context) -> None:
 # Generate and send fines chart by employee
 async def fines_employee(update: Update, context) -> None:
     response = requests.get(f"{API_URL}/attendance")
-    if response.status_code == 200):
+    if response.status_code == 200:
         data = response.json()
         df = pd.DataFrame(data)
 
