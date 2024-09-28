@@ -1,161 +1,106 @@
-import pandas as pd
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output
+import pandas as pd
 import plotly.express as px
 
+# Load the data
+file_path = 'data/monthly_fines_bonuses.xlsx'  # Update this with the correct path to your file
+monthly_data = pd.read_excel(file_path)
 
-# Load the Excel files
-attendance_data = pd.read_excel('data/attendance.xlsx')
-holiday_data = pd.read_excel('data/holiday.xlsx')
-permission_data = pd.read_excel('data/permission.xlsx')
-
-# Data Preparation and KPI Calculation
-attendance_data['Entry'] = pd.to_datetime(attendance_data['Entry'], format='%H:%M')
-attendance_data['Exit'] = pd.to_datetime(attendance_data['Exit'], format='%H:%M')
-attendance_data['Work_Hours'] = (attendance_data['Exit'] - attendance_data['Entry']).dt.total_seconds() / 3600
-
-# Calculate overtime and delay
-attendance_data['Overtime'] = attendance_data['Work_Hours'] - 8
-attendance_data['Overtime'] = attendance_data['Overtime'].apply(lambda x: x if x > 0 else 0)
-attendance_data['Delay'] = 8 - attendance_data['Work_Hours']
-attendance_data['Delay'] = attendance_data['Delay'].apply(lambda x: x if x > 0 else 0)
-
-# Calculate fines and bonuses based on delay and overtime
-attendance_data['Fine'] = 0
-attendance_data.loc[attendance_data['Delay'] > 3, 'Fine'] = 0.02
-attendance_data.loc[attendance_data['Delay'] > 10, 'Fine'] = 0.03
-attendance_data.loc[attendance_data['Delay'] > 20, 'Fine'] = 0.05
-
-attendance_data['Bonus'] = 0
-attendance_data.loc[attendance_data['Overtime'] > 3, 'Bonus'] = 0.02
-attendance_data.loc[attendance_data['Overtime'] > 10, 'Bonus'] = 0.03
-attendance_data.loc[attendance_data['Overtime'] > 20, 'Bonus'] = 0.05
-
-# Create a Dash app
+# Initialize the Dash app
 app = dash.Dash(__name__)
 
-# Expose the Flask server instance for gunicorn
-server = app.server
-
-# Layout
+# App layout with multiple pages and dropdowns
 app.layout = html.Div([
-    html.H1("Employee Attendance Performance Dashboard"),
-    
-    # Dropdown for selecting department
-    html.Label("Select Department"),
-    dcc.Dropdown(
-        id='department-dropdown',
-        options=[{'label': dept, 'value': dept} for dept in attendance_data['Department'].unique()],
-        value=attendance_data['Department'].unique()[0]
-    ),
+    html.H1("Employee Performance Dashboard"),
 
-    # Dropdown for selecting employee
-    html.Label("Select Employee"),
-    dcc.Dropdown(
-        id='employee-dropdown',
-        value=attendance_data['Employee'].unique()[0]
-    ),
-    
-    # Dropdown for selecting time period
-    html.Label("Select Time Period"),
-    dcc.Dropdown(
-        id='time-period-dropdown',
-        options=[
-            {'label': 'Monthly', 'value': 'M'},
-            {'label': 'Yearly', 'value': 'Y'}
-        ],
-        value='M'
-    ),
+    # Page Navigation
+    dcc.Tabs(id="tabs", value='overview', children=[
+        dcc.Tab(label='Overview Dashboard', value='overview'),
+        dcc.Tab(label='Employee Comparison', value='employee_comparison'),
+        dcc.Tab(label='Department Performance', value='department_performance'),
+        dcc.Tab(label='Fines and Bonuses Report', value='fines_bonuses_report'),
+    ]),
 
-    # KPI Graphs
-    dcc.Graph(id='work-hours-graph'),
-    dcc.Graph(id='fines-bonuses-graph'),
-    dcc.Graph(id='overtime-delay-pie-chart'),
-    dcc.Graph(id='department-avg-work-hours'),
-    dcc.Graph(id='attendance-trend-graph')
+    html.Div(id='content')
 ])
 
-# Callback to update employee dropdown based on selected department
-@app.callback(
-    Output('employee-dropdown', 'options'),
-    Input('department-dropdown', 'value')
-)
-def update_employee_dropdown(selected_department):
-    employees = attendance_data[attendance_data['Department'] == selected_department]['Employee'].unique()
-    return [{'label': emp, 'value': emp} for emp in employees]
-
-# Callback to update work hours graph based on selected employee
-@app.callback(
-    Output('work-hours-graph', 'figure'),
-    [Input('department-dropdown', 'value'),
-     Input('employee-dropdown', 'value'),
-     Input('time-period-dropdown', 'value')]
-)
-def update_work_hours_graph(selected_department, selected_employee, time_period):
-    filtered_data = attendance_data[(attendance_data['Department'] == selected_department) & 
-                                    (attendance_data['Employee'] == selected_employee)]
+# Update the layout for different tabs
+@app.callback(Output('content', 'children'),
+              Input('tabs', 'value'))
+def render_content(tab):
+    if tab == 'overview':
+        # Page 1: Overview Dashboard
+        return html.Div([
+            html.H3('Overview Dashboard'),
+            dcc.Graph(
+                id='total-overtime-bar',
+                figure=px.bar(monthly_data.groupby('Employee')['Overtime'].sum().reset_index(), 
+                              x='Employee', y='Overtime', title='Total Overtime by Employee')
+            ),
+            dcc.Graph(
+                id='total-delay-bar',
+                figure=px.bar(monthly_data.groupby('Employee')['Delay'].sum().reset_index(), 
+                              x='Employee', y='Delay', title='Total Delay by Employee')
+            ),
+            dcc.Graph(
+                id='total-fines-bonuses',
+                figure=px.bar(monthly_data.groupby('Employee')[['Fine', 'Bonus']].sum().reset_index(),
+                              x='Employee', y=['Fine', 'Bonus'], barmode='group', 
+                              title='Total Fines and Bonuses by Employee')
+            )
+        ])
     
-    fig = px.bar(filtered_data, x='Date', y='Work_Hours', title='Work Hours Over Time')
-    return fig
-
-# Callback to update fines and bonuses graph
-@app.callback(
-    Output('fines-bonuses-graph', 'figure'),
-    [Input('department-dropdown', 'value'),
-     Input('employee-dropdown', 'value')]
-)
-def update_fines_bonuses_graph(selected_department, selected_employee):
-    filtered_data = attendance_data[(attendance_data['Department'] == selected_department) & 
-                                    (attendance_data['Employee'] == selected_employee)]
+    elif tab == 'employee_comparison':
+        # Page 2: Employee Comparison
+        return html.Div([
+            html.H3('Employee Comparison'),
+            dcc.Graph(
+                id='work-hours-comparison',
+                figure=px.bar(monthly_data, x='Employee', y='Overtime', title='Comparison of Employee Overtime')
+            ),
+            dcc.Graph(
+                id='top-5-overtime',
+                figure=px.bar(monthly_data.nlargest(5, 'Overtime'), x='Employee', y='Overtime', 
+                              title='Top 5 Employees with Most Overtime')
+            ),
+            dcc.Graph(
+                id='fine-bonus-comparison',
+                figure=px.bar(monthly_data, x='Employee', y=['Fine', 'Bonus'], barmode='group', 
+                              title='Fine and Bonus Comparison by Employee')
+            )
+        ])
     
-    fig = px.bar(filtered_data, x='Date', y=['Fine', 'Bonus'], title='Fines and Bonuses Over Time')
-    return fig
-
-# Callback to update overtime and delay pie chart
-@app.callback(
-    Output('overtime-delay-pie-chart', 'figure'),
-    [Input('department-dropdown', 'value'),
-     Input('employee-dropdown', 'value')]
-)
-def update_overtime_delay_pie_chart(selected_department, selected_employee):
-    filtered_data = attendance_data[(attendance_data['Department'] == selected_department) & 
-                                    (attendance_data['Employee'] == selected_employee)]
+    elif tab == 'department_performance':
+        # Page 3: Department Performance
+        department_grouped = monthly_data.groupby('Department')[['Overtime', 'Delay']].sum().reset_index()
+        return html.Div([
+            html.H3('Department Performance'),
+            dcc.Graph(
+                id='overtime-delay-department',
+                figure=px.bar(department_grouped, x='Department', y=['Overtime', 'Delay'], 
+                              barmode='group', title='Overtime and Delay by Department')
+            )
+        ])
     
-    total_overtime = filtered_data['Overtime'].sum()
-    total_delay = filtered_data['Delay'].sum()
-    
-    fig = px.pie(values=[total_overtime, total_delay], 
-                 names=['Overtime', 'Delay'], 
-                 title='Overtime vs Delay Distribution')
-    return fig
+    elif tab == 'fines_bonuses_report':
+        # Page 4: Fines and Bonuses Report
+        return html.Div([
+            html.H3('Fines and Bonuses Report'),
+            dcc.Graph(
+                id='fines-bonuses-overtime-line',
+                figure=px.line(monthly_data.groupby('Employee')[['Fine', 'Bonus']].sum().reset_index(),
+                               x='Employee', y=['Fine', 'Bonus'], 
+                               title='Fines and Bonuses Over Time (Line Chart)')
+            ),
+            dcc.Graph(
+                id='top-employee-fines',
+                figure=px.bar(monthly_data.nlargest(5, 'Fine'), x='Employee', y='Fine', 
+                              title='Top Employees with Highest Fines')
+            )
+        ])
 
-# Callback to update average work hours by department
-@app.callback(
-    Output('department-avg-work-hours', 'figure'),
-    Input('department-dropdown', 'value')
-)
-def update_department_avg_work_hours(selected_department):
-    department_data = attendance_data[attendance_data['Department'] == selected_department]
-    avg_work_hours = department_data.groupby('Employee')['Work_Hours'].mean().reset_index()
-    
-    fig = px.bar(avg_work_hours, x='Employee', y='Work_Hours', title='Average Work Hours by Employee')
-    return fig
-
-# Callback to show attendance trends over time
-@app.callback(
-    Output('attendance-trend-graph', 'figure'),
-    [Input('department-dropdown', 'value'),
-     Input('employee-dropdown', 'value'),
-     Input('time-period-dropdown', 'value')]
-)
-def update_attendance_trend_graph(selected_department, selected_employee, time_period):
-    filtered_data = attendance_data[(attendance_data['Department'] == selected_department) & 
-                                    (attendance_data['Employee'] == selected_employee)]
-    
-    fig = px.line(filtered_data, x='Date', y='Work_Hours', title='Attendance Trends Over Time')
-    return fig
-
-# Run the app
+# Run the Dash app
 if __name__ == '__main__':
-    app.run_server(debug=False)
+    app.run_server(debug=True)
