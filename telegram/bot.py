@@ -5,6 +5,7 @@ from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler
 import matplotlib.pyplot as plt
 import pandas as pd
+import asyncio  
 
 # Load environment variables from the .env file
 load_dotenv()
