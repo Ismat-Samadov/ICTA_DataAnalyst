@@ -10,6 +10,7 @@ monthly_data = pd.read_excel(file_path)
 
 # Initialize the Dash app
 app = dash.Dash(__name__)
+server = app.server  # This is necessary for Gunicorn to recognize the app
 
 # App layout with multiple pages and dropdowns
 app.layout = html.Div([
