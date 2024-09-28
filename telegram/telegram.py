@@ -1,9 +1,15 @@
 import requests
+import os
+from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext
 
-# Your FastAPI server URL
-API_URL = 'http://127.0.0.1:8000'
+# Load environment variables from the .env file
+load_dotenv()
+
+# Read API URL and Bot Token from .env
+API_URL = os.getenv('API_URL')
+TOKEN = os.getenv('BOT_TOKEN')
 
 # Define the start command
 def start(update: Update, context: CallbackContext) -> None:
@@ -46,8 +52,7 @@ def permission(update: Update, context: CallbackContext) -> None:
         update.message.reply_text("Failed to fetch permission data.")
 
 def main():
-    # Replace with your bot token
-    TOKEN = "YOUR_BOT_TOKEN"
+    # Initialize the updater with the bot token
     updater = Updater(TOKEN, use_context=True)
 
     dispatcher = updater.dispatcher
