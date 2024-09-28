@@ -67,6 +67,7 @@ async def permission(update: Update, context) -> None:
     else:
         await update.message.reply_text("Failed to fetch permission data.")
 
+# Generate and send overtime by employee chart
 async def overtime_employee(update: Update, context) -> None:
     response = requests.get(f"{API_URL}/attendance")
     if response.status_code == 200:
@@ -74,10 +75,7 @@ async def overtime_employee(update: Update, context) -> None:
         df = pd.DataFrame(data)
 
         # Ensure the Overtime column exists and is numeric
-        if 'Overtime' in df.columns:
-            df['Overtime'] = pd.to_numeric(df['Overtime'], errors='coerce').fillna(0)
-        else:
-            df['Overtime'] = 0  # Create the column with default 0 values if missing
+        df['Overtime'] = pd.to_numeric(df.get('Overtime', 0), errors='coerce').fillna(0)
 
         # Generate bar chart for overtime
         plt.figure(figsize=(10, 6))
@@ -90,6 +88,7 @@ async def overtime_employee(update: Update, context) -> None:
         # Save and send the image
         image_path = 'overtime_employee.png'
         plt.savefig(image_path)
+        plt.close()  # Close the plot to free memory
         
         try:
             await context.bot.send_photo(update.effective_chat.id, photo=open(image_path, 'rb'))
@@ -116,9 +115,10 @@ async def delay_department(update: Update, context) -> None:
         plt.tight_layout()
 
         plt.savefig('delay_department.png')
+        plt.close()
+
         with open('delay_department.png', 'rb') as photo:
             await context.bot.send_photo(chat_id=update.effective_chat.id, photo=photo)
-        plt.close()
     else:
         await update.message.reply_text("Failed to fetch data.")
 
@@ -141,9 +141,10 @@ async def attendance_rate(update: Update, context) -> None:
         plt.tight_layout()
 
         plt.savefig('attendance_rate.png')
+        plt.close()
+
         with open('attendance_rate.png', 'rb') as photo:
             await context.bot.send_photo(chat_id=update.effective_chat.id, photo=photo)
-        plt.close()
     else:
         await update.message.reply_text("Failed to fetch data.")
 
@@ -164,87 +165,12 @@ async def fines_employee(update: Update, context) -> None:
         plt.tight_layout()
 
         plt.savefig('fines_employee.png')
+        plt.close()
+
         with open('fines_employee.png', 'rb') as photo:
             await context.bot.send_photo(chat_id=update.effective_chat.id, photo=photo)
-        plt.close()
     else:
         await update.message.reply_text("Failed to fetch data.")
-
-# Generate and send bonuses pie chart by department
-async def bonuses_department(update: Update, context) -> None:
-    response = requests.get(f"{API_URL}/attendance")
-    if response.status_code == 200:
-        data = response.json()
-        df = pd.DataFrame(data)
-
-        df['Bonus'] = pd.to_numeric(df.get('Bonus', 0), errors='coerce').fillna(0)
-
-        bonuses_summary = df.groupby('department')['Bonus'].sum()
-
-        plt.figure(figsize=(7, 7))
-        bonuses_summary.plot(kind='pie', autopct='%1.1f%%', startangle=90)
-        plt.title("Bonuses by Department")
-        plt.tight_layout()
-
-        plt.savefig('bonuses_department.png')
-        with open('bonuses_department.png', 'rb') as photo:
-            await context.bot.send_photo(chat_id=update.effective_chat.id, photo=photo)
-        plt.close()
-    else:
-        await update.message.reply_text("Failed to fetch data.")
-
-# Generate and send top 5 overtime employees chart
-async def top_overtime(update: Update, context) -> None:
-    response = requests.get(f"{API_URL}/attendance")
-    if response.status_code == 200:
-        data = response.json()
-        df = pd.DataFrame(data)
-
-        df['Overtime'] = pd.to_numeric(df.get('Overtime', 0), errors='coerce').fillna(0)
-
-        top_employees = df.groupby('employee')['Overtime'].sum().sort_values(ascending=False).head(5)
-
-        plt.figure(figsize=(10, 6))
-        top_employees.plot(kind='bar', color='orange')
-        plt.title("Top 5 Employees with Most Overtime")
-        plt.xlabel("Employee")
-        plt.ylabel("Total Overtime (Hours)")
-        plt.tight_layout()
-
-        plt.savefig('top_overtime.png')
-        with open('top_overtime.png', 'rb') as photo:
-            await context.bot.send_photo(chat_id=update.effective_chat.id, photo=photo)
-        plt.close()
-    else:
-        await update.message.reply_text("Failed to fetch data.")
-
-# Generate and send overtime vs delay scatter plot
-async def overtime_vs_delay(update: Update, context) -> None:
-    response = requests.get(f"{API_URL}/attendance")
-    if response.status_code == 200:
-        data = response.json()
-        df = pd.DataFrame(data)
-
-        # Convert 'Overtime' and 'Delay' to numeric
-        df['Overtime'] = pd.to_numeric(df.get('Overtime', 0), errors='coerce').fillna(0)
-        df['Delay'] = pd.to_numeric(df.get('Delay', 0), errors='coerce').fillna(0)
-
-        # Generate scatter plot
-        plt.figure(figsize=(10, 6))
-        plt.scatter(df['Overtime'], df['Delay'], c='blue', alpha=0.5)
-        plt.title("Overtime vs Delay")
-        plt.xlabel("Overtime (Hours)")
-        plt.ylabel("Delay (Hours)")
-        plt.tight_layout()
-
-        # Save and send the image
-        plt.savefig('overtime_vs_delay.png')
-        with open('overtime_vs_delay.png', 'rb') as photo:
-            await context.bot.send_photo(chat_id=update.effective_chat.id, photo=photo)
-        plt.close()
-    else:
-        await update.message.reply_text("Failed to fetch data.")
-
 
 # Main function to start the bot
 async def main():
@@ -258,12 +184,9 @@ async def main():
     application.add_handler(CommandHandler("overtime_employee", overtime_employee))
     application.add_handler(CommandHandler("delay_department", delay_department))
     application.add_handler(CommandHandler("attendance_rate", attendance_rate))
-    application.add_handler(CommandHandler("overtime_vs_delay", overtime_vs_delay))
     application.add_handler(CommandHandler("fines_employee", fines_employee))
-    application.add_handler(CommandHandler("bonuses_department", bonuses_department))
-    application.add_handler(CommandHandler("top_overtime", top_overtime))
 
-    # Instead of manually calling start, we use run_polling()
+    # Run the bot
     await application.run_polling()
 
 if __name__ == '__main__':
