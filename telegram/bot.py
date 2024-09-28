@@ -274,11 +274,14 @@ if __name__ == '__main__':
         # Check if an event loop is already running
         try:
             loop = asyncio.get_running_loop()
-        except RuntimeError:  # No running loop, we create a new one
+            if loop.is_running():
+                print("Event loop is already running. Creating a task for the bot.")
+                task = loop.create_task(main())  # Create a task if the loop is running
+                loop.run_until_complete(task)
+        except RuntimeError:  # No running loop, so create a new one
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
+            loop.run_until_complete(main())
 
-        # Run the bot using the appropriate loop
-        loop.run_until_complete(main())
     except Exception as e:
         print(f"Error running the bot: {e}")
