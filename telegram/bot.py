@@ -210,6 +210,33 @@ async def top_overtime(update: Update, context) -> None:
     else:
         await update.message.reply_text("Failed to fetch data.")
 
+# Generate and send overtime vs delay scatter plot
+async def overtime_vs_delay(update: Update, context) -> None:
+    response = requests.get(f"{API_URL}/attendance")
+    if response.status_code == 200:
+        data = response.json()
+        df = pd.DataFrame(data)
+
+        # Convert 'Overtime' and 'Delay' to numeric
+        df['Overtime'] = pd.to_numeric(df.get('Overtime', 0), errors='coerce').fillna(0)
+        df['Delay'] = pd.to_numeric(df.get('Delay', 0), errors='coerce').fillna(0)
+
+        # Generate scatter plot
+        plt.figure(figsize=(10, 6))
+        plt.scatter(df['Overtime'], df['Delay'], c='blue', alpha=0.5)
+        plt.title("Overtime vs Delay")
+        plt.xlabel("Overtime (Hours)")
+        plt.ylabel("Delay (Hours)")
+        plt.tight_layout()
+
+        # Save and send the image
+        plt.savefig('overtime_vs_delay.png')
+        with open('overtime_vs_delay.png', 'rb') as photo:
+            await context.bot.send_photo(chat_id=update.effective_chat.id, photo=photo)
+        plt.close()
+    else:
+        await update.message.reply_text("Failed to fetch data.")
+
 # Main function to start the bot
 async def main():
     application = ApplicationBuilder().token(TOKEN).build()
@@ -218,4 +245,20 @@ async def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("attendance", attendance))
     application.add_handler(CommandHandler("holiday", holiday))
-    application.add_handler(Command
+    application.add_handler(CommandHandler("permission", permission))
+    application.add_handler(CommandHandler("overtime_employee", overtime_employee))
+    application.add_handler(CommandHandler("delay_department", delay_department))
+    application.add_handler(CommandHandler("attendance_rate", attendance_rate))
+    application.add_handler(CommandHandler("overtime_vs_delay", overtime_vs_delay))
+    application.add_handler(CommandHandler("fines_employee", fines_employee))
+    application.add_handler(CommandHandler("bonuses_department", bonuses_department))
+    application.add_handler(CommandHandler("top_overtime", top_overtime))
+
+    # Start the bot and keep it running
+    await application.start()
+    await application.updater.start_polling()
+    await application.idle()
+
+if __name__ == '__main__':
+    import asyncio
+    asyncio.run(main())
