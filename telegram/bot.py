@@ -63,8 +63,8 @@ async def analytics(update: Update, context) -> None:
 
     # Merge attendance with permission data
     attendance_with_permission = pd.merge(attendance_df, 
-                                          permission_df[['Date', 'Department', 'Employee', 'Permission_Hours']], 
-                                          on=['Date', 'Department', 'Employee'], how='left')
+                                          permission_df[['Date', 'department', 'Employee', 'Permission_Hours']], 
+                                          on=['Date', 'department', 'Employee'], how='left')
 
     attendance_with_permission['Adjusted_Work_Hours'] = attendance_with_permission['Work_Hours'] - attendance_with_permission['Permission_Hours'].fillna(0)
 
@@ -85,7 +85,7 @@ async def analytics(update: Update, context) -> None:
     # Monthly data extraction
     attendance_with_permission['Month'] = attendance_with_permission['Date'].dt.to_period('M')
 
-    monthly_data = attendance_with_permission.groupby(['Employee', 'Department', 'Month']).agg({
+    monthly_data = attendance_with_permission.groupby(['Employee', 'department', 'Month']).agg({
         'Delay': 'sum',
         'Overtime': 'sum'
     }).reset_index()
@@ -152,11 +152,11 @@ async def analytics(update: Update, context) -> None:
     plt.savefig("total_bonuses.png")
     await update.message.reply_photo(photo=open('total_bonuses.png', 'rb'))
 
-    # 6. Overtime and Delay by Department (Stacked Bar Chart)
+    # 6. Overtime and Delay by department (Stacked Bar Chart)
     plt.figure(figsize=(10, 6))
-    department_data = monthly_data.groupby('Department')[['Overtime', 'Delay']].sum()
-    department_data.plot(kind='bar', stacked=True, title="Overtime and Delay by Department", color=['orange', 'red'])
-    plt.xlabel('Department')
+    department_data = monthly_data.groupby('department')[['Overtime', 'Delay']].sum()
+    department_data.plot(kind='bar', stacked=True, title="Overtime and Delay by department", color=['orange', 'red'])
+    plt.xlabel('department')
     plt.ylabel('Hours')
     plt.xticks(rotation=45)
     plt.tight_layout()
