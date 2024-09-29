@@ -182,7 +182,7 @@ async def analytics(update: Update, context) -> None:
     plt.savefig("overtime_vs_delay.png")
     await update.message.reply_photo(photo=open('overtime_vs_delay.png', 'rb'))
 
-# OpenAI response generation function using monthly_data instead of summarized_data
+# OpenAI response generation function using monthly_data
 def generate_openai_response(user_query, monthly_data):
     prompt = f"""
     You are a data analyst assistant. Below is some monthly analytical data regarding employee overtime, delays, fines, and bonuses:
@@ -193,14 +193,17 @@ def generate_openai_response(user_query, monthly_data):
     """
     
     try:
-        # Call OpenAI API using the new method
-        response = openai.completions.create(
+        # Call OpenAI API using ChatCompletion method
+        response = openai.ChatCompletion.create(
             model="gpt-4",
-            prompt=prompt,
+            messages=[
+                {"role": "system", "content": "You are a helpful data analyst assistant."},
+                {"role": "user", "content": prompt}
+            ],
             max_tokens=200,
             temperature=0.7,
         )
-        return response['choices'][0]['text'].strip()
+        return response['choices'][0]['message']['content'].strip()
     except openai.error.InvalidRequestError as e:
         return f"Error generating response from OpenAI: {str(e)}"
 
