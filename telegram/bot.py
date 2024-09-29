@@ -183,7 +183,7 @@ async def analytics(update: Update, context) -> None:
     await update.message.reply_photo(photo=open('overtime_vs_delay.png', 'rb'))
 
 
-# OpenAI response generation function
+# OpenAI response generation function (updated for openai>=1.0.0)
 def generate_openai_response(user_query, api_data):
     prompt = f"""
     You are a data analyst assistant. Below is some data from an API:
@@ -193,17 +193,18 @@ def generate_openai_response(user_query, api_data):
     {user_query}
     """
     
-    # Call OpenAI API to generate a response
+    # Call OpenAI API to generate a response using the ChatCompletion method
     try:
-        response = openai.Completion.create(
-            engine="text-davinci-003",
-            prompt=prompt,
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",  # Updated to the newer model
+            messages=[
+                {"role": "system", "content": "You are a helpful data analyst assistant."},
+                {"role": "user", "content": prompt}
+            ],
             max_tokens=200,
-            n=1,
-            stop=None,
             temperature=0.7,
         )
-        return response.choices[0].text.strip()
+        return response['choices'][0]['message']['content'].strip()
     except Exception as e:
         return f"Error generating response from OpenAI: {str(e)}"
 
