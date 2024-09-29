@@ -21,10 +21,14 @@ HOLIDAY_URL = f"{API_URL}holiday"
 PERMISSION_URL = f"{API_URL}permission"
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 
-# Fetch data from API
 def fetch_data(url):
     response = requests.get(url)
-    return pd.DataFrame(response.json())
+    print(f"API Response: {response.text}")  # Print the raw response
+    try:
+        return pd.DataFrame(response.json())
+    except requests.exceptions.JSONDecodeError as e:
+        print(f"Error parsing JSON: {e}")
+        return pd.DataFrame()  # Return an empty DataFrame if parsing fails
 
 # Start command
 async def start(update: Update, context) -> None:
