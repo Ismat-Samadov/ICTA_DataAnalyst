@@ -266,12 +266,12 @@ async def main():
     application.add_handler(CommandHandler("bonuses_department", bonuses_department))
     application.add_handler(CommandHandler("top_overtime", top_overtime))
 
+    print("Starting bot with polling...")
+    await application.run_polling()  # This is a blocking call that keeps the bot running
+
+if __name__ == '__main__':
+    print("Starting bot...")
     try:
-        # Await initialization and polling
-        await application.initialize()
-        await application.start()
-        await application.run_polling()
-        # Await graceful shutdown
-        await application.stop()
+        asyncio.run(main())  # This correctly manages the event loop
     except Exception as e:
-        print(f"Error during polling: {e}")
+        print(f"Error: {e}")
