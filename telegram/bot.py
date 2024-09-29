@@ -183,18 +183,32 @@ async def analytics(update: Update, context) -> None:
     await update.message.reply_photo(photo=open('overtime_vs_delay.png', 'rb'))
 
 
-# OpenAI response generation function (updated for openai>=1.0.0)
+def summarize_data(data, max_length=1000):
+    """
+    Summarizes the API data to avoid exceeding token limits.
+    Reduces the size of the data while retaining important information.
+    """
+    summarized_data = {}
+    for key, value in data.items():
+        # Keep only the first few rows for each key to reduce data size
+        summarized_data[key] = {k: value[k] for k in list(value)[:max_length]}
+    return summarized_data
+
+# OpenAI response generation function (updated to handle token limits)
 def generate_openai_response(user_query, api_data):
+    # Summarize the data to avoid exceeding the token limit
+    summarized_data = summarize_data(api_data)
+    
     prompt = f"""
-    You are a data analyst assistant. Below is some data from an API:
-    {api_data}
+    You are a data analyst assistant. Below is some summarized data from an API:
+    {summarized_data}
     
     Based on this data, answer the following question:
     {user_query}
     """
     
-    # Call OpenAI API to generate a response using the ChatCompletion method
     try:
+        # Call OpenAI API to generate a response using the ChatCompletion method
         response = openai.ChatCompletion.create(
             model="gpt-4",  # Updated to the newer model
             messages=[
@@ -208,7 +222,7 @@ def generate_openai_response(user_query, api_data):
     except Exception as e:
         return f"Error generating response from OpenAI: {str(e)}"
 
-# New OpenAI query handler
+# Example usage in your query handler
 async def openai_query(update: Update, context) -> None:
     user_query = update.message.text  # Get the user's query
     
