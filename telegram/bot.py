@@ -47,7 +47,7 @@ async def analytics(update: Update, context) -> None:
     permission_df = fetch_data(PERMISSION_URL)
 
     # Data processing as per your example
-    attendance_df['Entry'] = pd.to_datetime(attendance_df['Entry'], format='%H:%M')
+    attendance_df['Entry'] = pd.to_datetime(attendance_df['entry'], format='%H:%M')
     attendance_df['Exit'] = pd.to_datetime(attendance_df['Exit'], format='%H:%M')
     attendance_df['Work_Hours'] = (attendance_df['Exit'] - attendance_df['Entry']).dt.total_seconds() / 3600
     attendance_df['Overtime'] = attendance_df['Work_Hours'] - 8
