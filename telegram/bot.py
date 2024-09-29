@@ -3,16 +3,21 @@ import requests
 import pandas as pd
 import matplotlib.pyplot as plt
 from telegram import Update
-from telegram.ext import Application, CommandHandler
+from telegram.ext import Application, CommandHandler, MessageHandler, filters
 from dotenv import load_dotenv
 import os
 import seaborn as sns
+import openai 
+
 # Load environment variables from the .env file
 load_dotenv()
 
 # Configure logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Set OpenAI API Key
+openai.api_key = os.getenv('OPENAI_API_KEY')
 
 # API Endpoints and Bot Token from .env
 API_URL = os.getenv('API_URL')
@@ -177,17 +182,65 @@ async def analytics(update: Update, context) -> None:
     plt.savefig("overtime_vs_delay.png")
     await update.message.reply_photo(photo=open('overtime_vs_delay.png', 'rb'))
 
+
+# OpenAI response generation function
+def generate_openai_response(user_query, api_data):
+    prompt = f"""
+    You are a data analyst assistant. Below is some data from an API:
+    {api_data}
+    
+    Based on this data, answer the following question:
+    {user_query}
+    """
+    
+    # Call OpenAI API to generate a response
+    try:
+        response = openai.Completion.create(
+            engine="text-davinci-003",
+            prompt=prompt,
+            max_tokens=200,
+            n=1,
+            stop=None,
+            temperature=0.7,
+        )
+        return response.choices[0].text.strip()
+    except Exception as e:
+        return f"Error generating response from OpenAI: {str(e)}"
+
+# New OpenAI query handler
+async def openai_query(update: Update, context) -> None:
+    user_query = update.message.text  # Get the user's query
+    
+    # Fetch data from the API to use in the OpenAI response
+    attendance_df = fetch_data(ATTENDANCE_URL)
+    holiday_df = fetch_data(HOLIDAY_URL)
+    permission_df = fetch_data(PERMISSION_URL)
+
+    # Combine the data into a single context for OpenAI
+    api_data = {
+        "attendance": attendance_df.to_dict(),
+        "holiday": holiday_df.to_dict(),
+        "permission": permission_df.to_dict()
+    }
+    
+    # Generate a response using OpenAI
+    openai_response = generate_openai_response(user_query, api_data)
+
+    # Send the OpenAI-generated response back to the user
+    await update.message.reply_text(openai_response)
+
+
+
 # Main function to set up the bot
 def main():
     # Create the application
     application = Application.builder().token(BOT_TOKEN).build()
-
     # Add handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("attendance", attendance))
     application.add_handler(CommandHandler("holiday", holiday))
     application.add_handler(CommandHandler("analytics", analytics))
-
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, openai_query))
     # Run the bot until you press Ctrl-C
     application.run_polling()
 
