@@ -249,9 +249,6 @@ async def top_overtime(update: Update, context) -> None:
     else:
         await update.message.reply_text("Failed to fetch data.")
 
-import asyncio
-from telegram.ext import ApplicationBuilder
-
 async def main():
     application = ApplicationBuilder().token(TOKEN).build()
 
@@ -268,18 +265,14 @@ async def main():
     application.add_handler(CommandHandler("bonuses_department", bonuses_department))
     application.add_handler(CommandHandler("top_overtime", top_overtime))
 
-    # Explicitly initialize the application
+  # Start the bot's polling mechanism
     await application.initialize()
-
-    # Start the bot
     await application.start()
-    # Run the bot until Ctrl+C is pressed
-    await application.updater.start_polling()
-    # Gracefully stop the bot
     await application.stop()
     await application.shutdown()
 
 if __name__ == '__main__':
+    import asyncio
     try:
         asyncio.run(main())
     except Exception as e:
