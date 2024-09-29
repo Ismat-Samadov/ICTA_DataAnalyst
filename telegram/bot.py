@@ -222,6 +222,7 @@ def generate_openai_response(user_query, api_data):
     except openai.error.InvalidRequestError as e:
         return f"Error generating response from OpenAI: {str(e)}"
 
+
 # New OpenAI query handler
 async def openai_query(update: Update, context) -> None:
     user_query = update.message.text  # Get the user's query
