@@ -271,8 +271,7 @@ async def main():
 
 if __name__ == '__main__':
     try:
-        # Use the existing event loop without trying to manually manage it
+        # This will manage the event loop internally and avoid the error
         asyncio.run(main())
-
     except Exception as e:
         print(f"Error running the bot: {e}")
