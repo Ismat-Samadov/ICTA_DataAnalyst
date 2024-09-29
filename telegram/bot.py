@@ -6,7 +6,7 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler
 from dotenv import load_dotenv
 import os
-
+import seaborn as sns
 # Load environment variables from the .env file
 load_dotenv()
 
@@ -40,17 +40,15 @@ async def holiday(update: Update, context) -> None:
     holiday_df = fetch_data(HOLIDAY_URL)
     await update.message.reply_text(f"Holiday Data:\n{holiday_df.head()}")
 
-# Analytics command with chart functionality
+# Analytics command with chart functionality for monthly evaluation
 async def analytics(update: Update, context) -> None:
     attendance_df = fetch_data(ATTENDANCE_URL)
     holiday_df = fetch_data(HOLIDAY_URL)
     permission_df = fetch_data(PERMISSION_URL)
 
-    # Data processing as per your requirements
+    # Data processing as per your example
     attendance_df['Entry'] = pd.to_datetime(attendance_df['Entry'], format='%H:%M')
     attendance_df['Exit'] = pd.to_datetime(attendance_df['Exit'], format='%H:%M')
-
-    # Calculate work hours, overtime, and delay
     attendance_df['Work_Hours'] = (attendance_df['Exit'] - attendance_df['Entry']).dt.total_seconds() / 3600
     attendance_df['Overtime'] = attendance_df['Work_Hours'] - 8
     attendance_df['Overtime'] = attendance_df['Overtime'].apply(lambda x: x if x > 0 else 0)
@@ -72,7 +70,6 @@ async def analytics(update: Update, context) -> None:
     # Holiday data processing
     holiday_df['Start'] = pd.to_datetime(holiday_df['Start'])
     holiday_df['End'] = pd.to_datetime(holiday_df['End'])
-
     leave_dates = []
     for idx, row in holiday_df.iterrows():
         leave_dates += pd.date_range(row['Start'], row['End']).to_list()
@@ -84,19 +81,96 @@ async def analytics(update: Update, context) -> None:
     attendance_with_permission = attendance_with_permission[~(attendance_with_permission['On_Leave'] & attendance_with_permission['Is_Weekend'])]
     attendance_with_permission = attendance_with_permission[~attendance_with_permission['On_Leave']]
 
-    # Final dataset
-    final_data = attendance_with_permission[['Date', 'Department', 'Employee', 'Adjusted_Work_Hours', 'Overtime', 'Delay']]
+    # Monthly data extraction
+    attendance_with_permission['Month'] = attendance_with_permission['Date'].dt.to_period('M')
 
-    # Plot the data (example: total adjusted work hours by employee)
+    monthly_data = attendance_with_permission.groupby(['Employee', 'Department', 'Month']).agg({
+        'Delay': 'sum',
+        'Overtime': 'sum'
+    }).reset_index()
+
+    # Fines and Bonuses
+    monthly_data['Fine'] = 0.0
+    monthly_data['Bonus'] = 0.0
+    monthly_data.loc[monthly_data['Delay'] > 3, 'Fine'] = 0.02
+    monthly_data.loc[monthly_data['Delay'] > 10, 'Fine'] = 0.03
+    monthly_data.loc[monthly_data['Delay'] > 20, 'Fine'] = 0.05
+    monthly_data.loc[monthly_data['Overtime'] > 3, 'Bonus'] = 0.02
+    monthly_data.loc[monthly_data['Overtime'] > 10, 'Bonus'] = 0.03
+    monthly_data.loc[monthly_data['Overtime'] > 20, 'Bonus'] = 0.05
+
+    # Now generate the charts and send them to the user
+
+    # 1. Total Overtime by Employee
     plt.figure(figsize=(10, 6))
-    final_data.groupby('Employee')['Adjusted_Work_Hours'].sum().plot(kind='bar', title="Total Adjusted Work Hours by Employee")
-    plt.ylabel("Adjusted Work Hours")
-    plt.xlabel("Employee")
+    monthly_data.groupby('Employee')['Overtime'].sum().plot(kind='bar', title="Total Overtime by Employee", color='skyblue')
+    plt.xlabel('Employee')
+    plt.ylabel('Total Overtime (Hours)')
+    plt.xticks(rotation=45)
     plt.tight_layout()
-    plt.savefig("adjusted_work_hours.png")
+    plt.savefig("total_overtime.png")
+    await update.message.reply_photo(photo=open('total_overtime.png', 'rb'))
 
-    # Send the chart to the user
-    await update.message.reply_photo(photo=open('adjusted_work_hours.png', 'rb'))
+    # 2. Average Overtime by Employee
+    plt.figure(figsize=(10, 6))
+    monthly_data.groupby('Employee')['Overtime'].mean().plot(kind='bar', title="Average Overtime by Employee", color='green')
+    plt.xlabel('Employee')
+    plt.ylabel('Average Overtime (Hours)')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.savefig("average_overtime.png")
+    await update.message.reply_photo(photo=open('average_overtime.png', 'rb'))
+
+    # 3. Total Delay by Employee
+    plt.figure(figsize=(10, 6))
+    monthly_data.groupby('Employee')['Delay'].sum().plot(kind='bar', title="Total Delay by Employee", color='red')
+    plt.xlabel('Employee')
+    plt.ylabel('Total Delay (Hours)')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.savefig("total_delay.png")
+    await update.message.reply_photo(photo=open('total_delay.png', 'rb'))
+
+    # 4. Total Fines by Employee
+    plt.figure(figsize=(10, 6))
+    monthly_data.groupby('Employee')['Fine'].sum().plot(kind='bar', title="Total Fines by Employee", color='purple')
+    plt.xlabel('Employee')
+    plt.ylabel('Total Fines')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.savefig("total_fines.png")
+    await update.message.reply_photo(photo=open('total_fines.png', 'rb'))
+
+    # 5. Total Bonuses by Employee
+    plt.figure(figsize=(10, 6))
+    monthly_data.groupby('Employee')['Bonus'].sum().plot(kind='bar', title="Total Bonuses by Employee", color='blue')
+    plt.xlabel('Employee')
+    plt.ylabel('Total Bonuses')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.savefig("total_bonuses.png")
+    await update.message.reply_photo(photo=open('total_bonuses.png', 'rb'))
+
+    # 6. Overtime and Delay by Department (Stacked Bar Chart)
+    plt.figure(figsize=(10, 6))
+    department_data = monthly_data.groupby('Department')[['Overtime', 'Delay']].sum()
+    department_data.plot(kind='bar', stacked=True, title="Overtime and Delay by Department", color=['orange', 'red'])
+    plt.xlabel('Department')
+    plt.ylabel('Hours')
+    plt.xticks(rotation=45)
+    plt.tight_layout()
+    plt.savefig("overtime_delay_by_department.png")
+    await update.message.reply_photo(photo=open('overtime_delay_by_department.png', 'rb'))
+
+    # 7. Overtime vs Delay (Scatter Plot)
+    plt.figure(figsize=(10, 6))
+    sns.scatterplot(data=monthly_data, x='Overtime', y='Delay', hue='Employee', s=100, alpha=0.7)
+    plt.title('Overtime vs Delay')
+    plt.xlabel('Overtime (Hours)')
+    plt.ylabel('Delay (Hours)')
+    plt.tight_layout()
+    plt.savefig("overtime_vs_delay.png")
+    await update.message.reply_photo(photo=open('overtime_vs_delay.png', 'rb'))
 
 # Main function to set up the bot
 def main():
