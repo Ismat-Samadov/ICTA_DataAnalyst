@@ -49,6 +49,3 @@ async def get_permission():
     permission_df = pd.read_sql(permission_query, conn)
     conn.close()
     return permission_df.to_dict(orient='records')
-
-# To run the API, use uvicorn
-# `uvicorn app_name:app --reload`
