@@ -55,9 +55,10 @@ async def analytics(update: Update, context) -> None:
     attendance_df['Delay'] = 8 - attendance_df['Work_Hours']
     attendance_df['Delay'] = attendance_df['Delay'].apply(lambda x: x if x > 0 else 0)
 
-    # Permission data processing
-    permission_df['Start'] = pd.to_datetime(permission_df['Start'], format='%H:%M:%S')
-    permission_df['End'] = pd.to_datetime(permission_df['End'], format='%H:%M:%S')
+    # Convert permission Start and End times to datetime to calculate permission hours
+    permission_df['Start'] = pd.to_datetime(permission_df['Start'], format='%H:%M', errors='coerce')
+    permission_df['End'] = pd.to_datetime(permission_df['End'], format='%H:%M', errors='coerce')
+
     permission_df['Permission_Hours'] = (permission_df['End'] - permission_df['Start']).dt.total_seconds() / 3600
 
     # Merge attendance with permission data
