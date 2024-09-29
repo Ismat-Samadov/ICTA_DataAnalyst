@@ -27,7 +27,7 @@ def get_db_connection():
 async def get_attendance():
     """Fetch attendance data from the database"""
     conn = get_db_connection()
-    attendance_query = 'SELECT "Date", department, employee, entry, "Exit" FROM public.attendance;'
+    attendance_query = 'SELECT "Date", Department, Employee, Entry, "Exit" FROM public.attendance;'
     attendance_df = pd.read_sql(attendance_query, conn)
     conn.close()
     return attendance_df.to_dict(orient='records')

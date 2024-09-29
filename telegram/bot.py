@@ -23,7 +23,7 @@ BOT_TOKEN = os.getenv('BOT_TOKEN')
 
 def fetch_data(url):
     response = requests.get(url)
-    print(f"API Response: {response.text}")  # Print the raw response
+    print(f"API Response: {response.text}")  
     try:
         return pd.DataFrame(response.json())
     except requests.exceptions.JSONDecodeError as e:
