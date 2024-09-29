@@ -183,20 +183,20 @@ async def analytics(update: Update, context) -> None:
     await update.message.reply_photo(photo=open('overtime_vs_delay.png', 'rb'))
 
 
-def summarize_data(data, max_length=1000):
+def summarize_data(data, max_rows=5):
     """
     Summarizes the API data to avoid exceeding token limits.
     Reduces the size of the data while retaining important information.
     """
     summarized_data = {}
     for key, value in data.items():
-        # Keep only the first few rows for each key to reduce data size
-        summarized_data[key] = {k: value[k] for k in list(value)[:max_length]}
+        # Take only the first 'max_rows' rows for each key
+        summarized_data[key] = {k: value[k] for k in list(value)[:max_rows]}
     return summarized_data
 
-# OpenAI response generation function (updated to handle token limits)
+# OpenAI response generation function (updated for token limits)
 def generate_openai_response(user_query, api_data):
-    # Summarize the data to avoid exceeding the token limit
+    # Summarize the data to reduce token count
     summarized_data = summarize_data(api_data)
     
     prompt = f"""
@@ -208,9 +208,9 @@ def generate_openai_response(user_query, api_data):
     """
     
     try:
-        # Call OpenAI API to generate a response using the ChatCompletion method
+        # Call OpenAI API using ChatCompletion method
         response = openai.ChatCompletion.create(
-            model="gpt-4",  # Updated to the newer model
+            model="gpt-4",
             messages=[
                 {"role": "system", "content": "You are a helpful data analyst assistant."},
                 {"role": "user", "content": prompt}
@@ -219,10 +219,10 @@ def generate_openai_response(user_query, api_data):
             temperature=0.7,
         )
         return response['choices'][0]['message']['content'].strip()
-    except Exception as e:
+    except openai.error.InvalidRequestError as e:
         return f"Error generating response from OpenAI: {str(e)}"
 
-# Example usage in your query handler
+# New OpenAI query handler
 async def openai_query(update: Update, context) -> None:
     user_query = update.message.text  # Get the user's query
     
@@ -243,7 +243,6 @@ async def openai_query(update: Update, context) -> None:
 
     # Send the OpenAI-generated response back to the user
     await update.message.reply_text(openai_response)
-
 
 # Main function to set up the bot
 def main():
