@@ -196,7 +196,7 @@ def generate_openai_response(user_query, api_data):
     # Call OpenAI API to generate a response using the ChatCompletion method
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # Updated to the newer model
+            model="gpt-4",  # Updated to the newer model
             messages=[
                 {"role": "system", "content": "You are a helpful data analyst assistant."},
                 {"role": "user", "content": prompt}
