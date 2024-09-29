@@ -250,6 +250,7 @@ async def top_overtime(update: Update, context) -> None:
         await update.message.reply_text("Failed to fetch data.")
 
 async def main():
+    # Create the application with your bot token
     application = ApplicationBuilder().token(TOKEN).build()
 
     # Register command handlers
@@ -265,15 +266,12 @@ async def main():
     application.add_handler(CommandHandler("bonuses_department", bonuses_department))
     application.add_handler(CommandHandler("top_overtime", top_overtime))
 
-  # Start the bot's polling mechanism
-    await application.initialize()
-    await application.start()
-    await application.stop()
-    await application.shutdown()
-
-if __name__ == '__main__':
-    import asyncio
     try:
-        asyncio.run(main())
+        # Await initialization and polling
+        await application.initialize()
+        await application.start()
+        await application.run_polling()
+        # Await graceful shutdown
+        await application.stop()
     except Exception as e:
-        print(f"Error running the bot: {e}")
+        print(f"Error during polling: {e}")
