@@ -182,68 +182,90 @@ async def analytics(update: Update, context) -> None:
     plt.savefig("overtime_vs_delay.png")
     await update.message.reply_photo(photo=open('overtime_vs_delay.png', 'rb'))
 
-
-def summarize_data(data, max_rows=5):
-    """
-    Summarizes the API data to avoid exceeding token limits.
-    Reduces the size of the data while retaining important information.
-    """
-    summarized_data = {}
-    for key, value in data.items():
-        # Take only the first 'max_rows' rows for each key
-        summarized_data[key] = {k: value[k] for k in list(value)[:max_rows]}
-    return summarized_data
-
-# OpenAI response generation function (updated for token limits)
-def generate_openai_response(user_query, api_data):
-    # Summarize the data to reduce token count
-    summarized_data = summarize_data(api_data)
-    
+# OpenAI response generation function using monthly_data instead of summarized_data
+def generate_openai_response(user_query, monthly_data):
     prompt = f"""
-    You are a data analyst assistant. Below is some summarized data from an API:
-    {summarized_data}
+    You are a data analyst assistant. Below is some monthly analytical data regarding employee overtime, delays, fines, and bonuses:
+    {monthly_data.to_string(index=False)}
     
     Based on this data, answer the following question:
     {user_query}
     """
     
     try:
-        # Call OpenAI API using ChatCompletion method
-        response = openai.ChatCompletion.create(
+        # Call OpenAI API using the new method
+        response = openai.completions.create(
             model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are a helpful data analyst assistant."},
-                {"role": "user", "content": prompt}
-            ],
+            prompt=prompt,
             max_tokens=200,
             temperature=0.7,
         )
-        return response['choices'][0]['message']['content'].strip()
+        return response['choices'][0]['text'].strip()
     except openai.error.InvalidRequestError as e:
         return f"Error generating response from OpenAI: {str(e)}"
 
-
-# New OpenAI query handler
+# New OpenAI query handler using monthly_data
 async def openai_query(update: Update, context) -> None:
     user_query = update.message.text  # Get the user's query
     
-    # Fetch data from the API to use in the OpenAI response
+    # Fetch data for analytics
     attendance_df = fetch_data(ATTENDANCE_URL)
     holiday_df = fetch_data(HOLIDAY_URL)
     permission_df = fetch_data(PERMISSION_URL)
 
-    # Combine the data into a single context for OpenAI
-    api_data = {
-        "attendance": attendance_df.to_dict(),
-        "holiday": holiday_df.to_dict(),
-        "permission": permission_df.to_dict()
-    }
-    
-    # Generate a response using OpenAI
-    openai_response = generate_openai_response(user_query, api_data)
+    # Calculate monthly data like in the analytics function
+    attendance_df['Entry'] = pd.to_datetime(attendance_df['Entry'], format='%H:%M')
+    attendance_df['Exit'] = pd.to_datetime(attendance_df['Exit'], format='%H:%M')
+    attendance_df['Work_Hours'] = (attendance_df['Exit'] - attendance_df['Entry']).dt.total_seconds() / 3600
+    attendance_df['Overtime'] = attendance_df['Work_Hours'] - 8
+    attendance_df['Overtime'] = attendance_df['Overtime'].apply(lambda x: x if x > 0 else 0)
+    attendance_df['Delay'] = 8 - attendance_df['Work_Hours']
+    attendance_df['Delay'] = attendance_df['Delay'].apply(lambda x: x if x > 0 else 0)
+
+    permission_df['Start'] = pd.to_datetime(permission_df['Start'], format='%H:%M', errors='coerce')
+    permission_df['End'] = pd.to_datetime(permission_df['End'], format='%H:%M', errors='coerce')
+    permission_df['Permission_Hours'] = (permission_df['End'] - permission_df['Start']).dt.total_seconds() / 3600
+
+    attendance_with_permission = pd.merge(attendance_df, 
+                                          permission_df[['Date', 'Department', 'Employee', 'Permission_Hours']], 
+                                          on=['Date', 'Department', 'Employee'], how='left')
+    attendance_with_permission['Adjusted_Work_Hours'] = attendance_with_permission['Work_Hours'] - attendance_with_permission['Permission_Hours'].fillna(0)
+
+    holiday_df['Start'] = pd.to_datetime(holiday_df['Start'])
+    holiday_df['End'] = pd.to_datetime(holiday_df['End'])
+    leave_dates = []
+    for idx, row in holiday_df.iterrows():
+        leave_dates += pd.date_range(row['Start'], row['End']).to_list()
+
+    attendance_with_permission['On_Leave'] = attendance_with_permission['Date'].isin(leave_dates)
+    attendance_with_permission['Date'] = pd.to_datetime(attendance_with_permission['Date'])
+    attendance_with_permission['Is_Weekend'] = attendance_with_permission['Date'].dt.weekday >= 5
+
+    attendance_with_permission = attendance_with_permission[~(attendance_with_permission['On_Leave'] & attendance_with_permission['Is_Weekend'])]
+    attendance_with_permission = attendance_with_permission[~attendance_with_permission['On_Leave']]
+
+    attendance_with_permission['Month'] = attendance_with_permission['Date'].dt.to_period('M')
+    monthly_data = attendance_with_permission.groupby(['Employee', 'Department', 'Month']).agg({
+        'Delay': 'sum',
+        'Overtime': 'sum'
+    }).reset_index()
+
+    # Fines and Bonuses calculations
+    monthly_data['Fine'] = 0.0
+    monthly_data['Bonus'] = 0.0
+    monthly_data.loc[monthly_data['Delay'] > 3, 'Fine'] = 0.02
+    monthly_data.loc[monthly_data['Delay'] > 10, 'Fine'] = 0.03
+    monthly_data.loc[monthly_data['Delay'] > 20, 'Fine'] = 0.05
+    monthly_data.loc[monthly_data['Overtime'] > 3, 'Bonus'] = 0.02
+    monthly_data.loc[monthly_data['Overtime'] > 10, 'Bonus'] = 0.03
+    monthly_data.loc[monthly_data['Overtime'] > 20, 'Bonus'] = 0.05
+
+    # Generate a response using OpenAI based on the monthly_data
+    openai_response = generate_openai_response(user_query, monthly_data)
 
     # Send the OpenAI-generated response back to the user
     await update.message.reply_text(openai_response)
+
 
 # Main function to set up the bot
 def main():
