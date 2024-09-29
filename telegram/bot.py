@@ -231,7 +231,6 @@ async def openai_query(update: Update, context) -> None:
     await update.message.reply_text(openai_response)
 
 
-
 # Main function to set up the bot
 def main():
     # Create the application
