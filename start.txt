@@ -1,0 +1,5 @@
+telegram/uvicorn api:app --host 0.0.0.0 --port $PORT  for telegram bot api type: api serving telegram bot
+telegram/python3 bot.py   for bot  type: background worker
+
+dashboard/gunicorn dashboard:server  for interactive custom dashboard type: fullstack python web app
+
